@@ -2,6 +2,10 @@
 
 ![AWI neutro](awi_neutro.png)
 
+**Probalo en línea:** https://jokimori.github.io/awi-animator/
+
+En la versión en línea el `.blend` se descarga como kit (el `.glb` más el script para Blender). Para generar el `.blend` directo, corré el servicio local de abajo.
+
 Editor web (escritorio y celular) para animar a AWI en 3D y descargar MP4, `.glb` y `.blend`.
 
 ## Correr
