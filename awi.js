@@ -186,7 +186,8 @@ const SIT_DROP = 0.3; // cuánto baja el cuerpo al sentarse
 /* ── brazos: "porotitos" con las dos puntas siempre redondas ──
    El largo cambia con un morph que estira solo el tramo recto, así las puntas nunca se afinan. */
 const ARM_TOP = 0.1, ARM_R1 = 0.135, ARM_R2 = 0.162;   // hombro (metido en el cuerpo) y mano, un poco más gordita
-const ARM_L0 = 0.8, ARM_L1 = 2.2;                       // rango del control "Largo de brazos"
+const ARM_L0 = 0.8, ARM_L1 = 2.2;                       // rango de la forma (el largo usado es fijo)
+const ARM_LEN = 1.25;                                   // largo de los brazos de AWI
 const armTotal = (L) => 0.415 * L + ARM_TOP;            // la punta de la mano queda en -0.415·L
 function armProfile(L) {
   const len = Math.max(0.01, armTotal(L) - ARM_R1 - ARM_R2), pts = [], N = 12;
@@ -410,7 +411,7 @@ export function createAwi() {
       const raise = ((i === 0 ? p.armLRaise : p.armRRaise) + 9) * D2R, swing = (i === 0 ? p.armLSwing : p.armRSwing) * D2R;
       a.rotation.set(-swing, 0, s * raise);
       // largo del brazo (crece desde el hombro; la mano y lo que sostiene van en la punta)
-      setArmLen(a, p.armLen ?? 1.4);
+      setArmLen(a, ARM_LEN); // proporción fija de AWI
     });
     legs.forEach((l, i) => {
       const s = i === 0 ? -1 : 1;

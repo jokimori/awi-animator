@@ -5,6 +5,7 @@ import * as THREE from 'three';
 export const PROPS = { ninguno: 'Ninguno', lupa: 'Lupa', libro: 'Libro', cine: 'Cine', botanico: 'Botánico' };
 
 // generador pseudoaleatorio fijo: los pochoclos y las hojas quedan siempre iguales
+const LUPA_S = 1.8; // tamaño de la lupa
 const rng = (seed) => () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
 
 function canvasTex(w, h, draw) {
@@ -31,16 +32,16 @@ export function createProps({ root, arms, face, eyes, setArmLen, patch }) {
   {
     const e = eyes[1].position;
     lupa.position.set(e.x + 0.02, e.y, e.z + 0.3);
-    // el mango baja hacia el hombro y se inclina hacia atrás, para que el brazo llegue de costado
-    lupa.rotation.set(0.55, 0, 0.75, 'ZXY'); lupa.scale.setScalar(1.9);
+    lupa.scale.setScalar(LUPA_S); // la orientación y el largo del mango se calculan en follow()
   }
   const wood = mat('#7a4a2c', { roughness: 0.7 }), brass = mat('#d9a84c', { roughness: 0.3, metalness: 0.6, clearcoat: 0.6 });
   mesh(new THREE.TorusGeometry(0.155, 0.03, 18, 56), brass, lupa, 'AWI_lupa_aro');
   const lens = mesh(new THREE.CircleGeometry(0.152, 56), mat('#d8efff', { transparent: true, opacity: 0.28, roughness: 0.05, clearcoat: 1, side: THREE.DoubleSide, depthWrite: false }), lupa, 'AWI_lupa_vidrio');
   lens.castShadow = false;
-  mesh(new THREE.CylinderGeometry(0.046, 0.046, 0.05, 20), brass, lupa, 'AWI_lupa_virola').position.y = -0.21;
-  mesh(new THREE.CylinderGeometry(0.042, 0.034, 0.3, 20), wood, lupa, 'AWI_lupa_mango').position.y = -0.38;
-  const grip = new THREE.Object3D(); grip.position.y = -0.5; lupa.add(grip); // donde la mano agarra el mango
+  // el mango sale del borde del aro; se alarga lo justo para llegar a la mano (el brazo no cambia de largo)
+  const mango = group('AWI_lupa_mangoGrupo', lupa); mango.position.y = -0.185;
+  mesh(new THREE.CylinderGeometry(0.046, 0.046, 0.05, 20), brass, mango, 'AWI_lupa_virola').position.y = -0.025;
+  mesh(new THREE.CylinderGeometry(0.042, 0.034, 0.3, 20), wood, mango, 'AWI_lupa_mango').position.y = -0.2;
 
   /* ── libro abierto (sostenido delante del pecho, páginas hacia la cara) ── */
   const libro = group('AWI_prop_libro', root);
@@ -153,19 +154,33 @@ export function createProps({ root, arms, face, eyes, setArmLen, patch }) {
   // se llama al final de apply(): la regadera sigue a la mano (también queda en el .glb)
   const armR = arms[1], armMesh = armR.children[0];
   const HAND_K = 0.37; // la mano queda a 0.37·L del hombro
-  const down = new THREE.Vector3(0, -1, 0), q = new THREE.Quaternion();
+  const down = new THREE.Vector3(0, -1, 0), q = new THREE.Quaternion(), q2 = new THREE.Quaternion();
+  const gripW = new THREE.Vector3(), dW = new THREE.Vector3();
+  const qTilt = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.3, 0, 0)); // el aro apenas inclinado hacia atrás
   function follow() {
-    // las manos siguen el largo actual de cada brazo
-    hands.forEach((h, i) => (h.position.y = -HAND_K * (arms[i].userData.L ?? 1.4)));
+    hands.forEach((h, i) => (h.position.y = -HAND_K * (arms[i].userData.L ?? 1.25)));
     if (current === 'lupa') {
       root.updateMatrixWorld(true);
-      // el brazo apunta al mango y, si no llega, se estira hasta alcanzarlo
-      const d = root.worldToLocal(grip.getWorldPosition(v)).sub(armR.position);
-      const len = d.length();
-      q.setFromUnitVectors(down, d.normalize());
-      armR.quaternion.copy(q);
-      const L = len / 0.415; // largo justo para que la mano llegue al mango
-      setArmLen(armR, L); hands[1].position.y = -HAND_K * L;
+      // 1) la mano apunta hacia el aro, hasta donde le da el brazo (que no cambia de largo)
+      const ringW = lupa.getWorldPosition(a0), shW = armR.getWorldPosition(a1);
+      const reach = HAND_K * (armR.userData.L ?? 1.25);
+      gripW.subVectors(ringW, shW).setLength(reach).add(shW);
+      // 2) el aro mira a la cámara (apenas inclinado) y el mango va, dentro del plano del aro, hacia la mano
+      face.getWorldQuaternion(q2); const toFace = q2.clone().invert();
+      const n = new THREE.Vector3(0, 0, 1).applyQuaternion(qTilt);
+      const toGrip = dW.subVectors(gripW, ringW).applyQuaternion(toFace);
+      const inPlane = toGrip.clone().projectOnPlane(n); const dist = inPlane.length(); inPlane.divideScalar(dist);
+      const yb = down.clone().applyQuaternion(qTilt);
+      const ang = Math.atan2(n.dot(new THREE.Vector3().crossVectors(yb, inPlane)), yb.dot(inPlane));
+      lupa.quaternion.setFromAxisAngle(n, ang).multiply(qTilt);
+      mango.scale.y = Math.max(0.3, (dist / LUPA_S - 0.185) / 0.35);
+      // 3) la mano va a la punta del mango tal como se ve de frente (la diferencia queda en profundidad)
+      root.updateMatrixWorld(true);
+      const endW = mango.localToWorld(new THREE.Vector3(0, -0.35, 0));
+      const e = root.worldToLocal(endW), sh = armR.position;
+      const dx = e.x - sh.x, dy = e.y - sh.y, r2 = reach * reach - dx * dx - dy * dy;
+      const hand = r2 > 0 ? new THREE.Vector3(e.x, e.y, sh.z + Math.sqrt(r2)) : e;
+      armR.quaternion.copy(q.setFromUnitVectors(down, hand.sub(sh).normalize()));
       // el ojo se ve agrandado a través del vidrio
       eyes[1].scale.multiplyScalar(1.25);
       root.updateMatrixWorld(true);
@@ -188,5 +203,5 @@ export function createProps({ root, arms, face, eyes, setArmLen, patch }) {
       d.scale.setScalar(u > 0.92 ? (1 - u) / 0.08 : 1);
     });
   }
-  return { set, follow, update, get current() { return current; }, liveOnly: [agua], nodes: [regadera] };
+  return { set, follow, update, get current() { return current; }, liveOnly: [agua], nodes: [regadera, lupa, mango] };
 }
