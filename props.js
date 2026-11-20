@@ -30,8 +30,9 @@ export function createProps({ root, arms, face, eyes, patch }) {
   const lupa = group('AWI_prop_lupa', face);
   {
     const e = eyes[1].position;
-    lupa.position.set(e.x + 0.04, e.y + 0.01, e.z + 0.3);
-    lupa.rotation.z = 0.7; lupa.scale.setScalar(1.45);
+    lupa.position.set(e.x + 0.02, e.y, e.z + 0.3);
+    // el mango baja hacia el hombro y se inclina hacia atrás, para que el brazo llegue de costado
+    lupa.rotation.set(0.55, 0, 0.75, 'ZXY'); lupa.scale.setScalar(1.9);
   }
   const wood = mat('#7a4a2c', { roughness: 0.7 }), brass = mat('#d9a84c', { roughness: 0.3, metalness: 0.6, clearcoat: 0.6 });
   mesh(new THREE.TorusGeometry(0.155, 0.03, 18, 56), brass, lupa, 'AWI_lupa_aro');
@@ -39,6 +40,7 @@ export function createProps({ root, arms, face, eyes, patch }) {
   lens.castShadow = false;
   mesh(new THREE.CylinderGeometry(0.046, 0.046, 0.05, 20), brass, lupa, 'AWI_lupa_virola').position.y = -0.21;
   mesh(new THREE.CylinderGeometry(0.042, 0.034, 0.3, 20), wood, lupa, 'AWI_lupa_mango').position.y = -0.38;
+  const grip = new THREE.Object3D(); grip.position.y = -0.5; lupa.add(grip); // donde la mano agarra el mango
 
   /* ── libro abierto (sostenido delante del pecho, páginas hacia la cara) ── */
   const libro = group('AWI_prop_libro', root);
@@ -65,14 +67,24 @@ export function createProps({ root, arms, face, eyes, patch }) {
   /* ── cine: anteojos 3D (en la cara) + balde de pochoclos ── */
   const anteojos = group('AWI_prop_anteojos', face);
   const ez = eyes[0].position.z, ey = eyes[0].position.y, ex = Math.abs(eyes[0].position.x);
-  anteojos.position.set(0.01, ey + 0.02, ez + 0.08); anteojos.scale.set(1.18, 1.05, 1);
-  const frameShape = roundedRect(new THREE.Shape(), -0.56, -0.17, 1.12, 0.34, 0.1);
-  for (const s of [-1, 1]) frameShape.holes.push(roundedRect(new THREE.Path(), s * ex - 0.175, -0.13, 0.35, 0.26, 0.06));
+  anteojos.position.set(0.01, ey, ez + 0.1); anteojos.scale.setScalar(1.12);
+  // marco ancho con huecos altos (los ojos entran enteros) y una muesca en el puente para que se vea la boca
+  const W = 1.3, H = 0.6, rr = 0.13, nw = 0.15, nh = 0.2;
+  const frameShape = new THREE.Shape();
+  frameShape.moveTo(-W / 2 + rr, -H / 2); frameShape.lineTo(-nw, -H / 2);
+  frameShape.bezierCurveTo(-nw * 0.6, -H / 2, -nw * 0.7, -H / 2 + nh, 0, -H / 2 + nh);
+  frameShape.bezierCurveTo(nw * 0.7, -H / 2 + nh, nw * 0.6, -H / 2, nw, -H / 2);
+  frameShape.lineTo(W / 2 - rr, -H / 2); frameShape.quadraticCurveTo(W / 2, -H / 2, W / 2, -H / 2 + rr);
+  frameShape.lineTo(W / 2, H / 2 - rr); frameShape.quadraticCurveTo(W / 2, H / 2, W / 2 - rr, H / 2);
+  frameShape.lineTo(-W / 2 + rr, H / 2); frameShape.quadraticCurveTo(-W / 2, H / 2, -W / 2, H / 2 - rr);
+  frameShape.lineTo(-W / 2, -H / 2 + rr); frameShape.quadraticCurveTo(-W / 2, -H / 2, -W / 2 + rr, -H / 2);
+  const HW = 0.4, HH = 0.48;
+  for (const s of [-1, 1]) frameShape.holes.push(roundedRect(new THREE.Path(), s * ex - HW / 2, -HH / 2 + 0.01, HW, HH, 0.09));
   const frame = mesh(new THREE.ExtrudeGeometry(frameShape, { depth: 0.035, bevelEnabled: true, bevelThickness: 0.012, bevelSize: 0.012, bevelSegments: 3, curveSegments: 10 }), mat('#f6f2ea', { roughness: 0.5 }), anteojos, 'AWI_anteojos_marco');
   frame.position.z = -0.02;
   for (const s of [-1, 1]) {
-    const l = mesh(new THREE.PlaneGeometry(0.36, 0.27), mat(s < 0 ? '#ff2f4a' : '#20c4ff', { transparent: true, opacity: 0.72, roughness: 0.1, clearcoat: 1, depthWrite: false }), anteojos, 'AWI_anteojos_lente' + (s < 0 ? 'I' : 'D'));
-    l.position.set(s * ex, 0, 0); l.castShadow = false;
+    const l = mesh(new THREE.PlaneGeometry(HW + 0.02, HH + 0.02), mat(s < 0 ? '#ff2f4a' : '#20c4ff', { transparent: true, opacity: 0.72, roughness: 0.1, clearcoat: 1, depthWrite: false }), anteojos, 'AWI_anteojos_lente' + (s < 0 ? 'I' : 'D'));
+    l.position.set(s * ex, 0.01, 0); l.castShadow = false;
   }
   const balde = group('AWI_prop_pochoclos', root);
   balde.position.set(-0.05, 0.42, 1.02); balde.scale.setScalar(1.3);
@@ -139,10 +151,28 @@ export function createProps({ root, arms, face, eyes, patch }) {
 
   const v = new THREE.Vector3(), a0 = new THREE.Vector3(), a1 = new THREE.Vector3();
   // se llama al final de apply(): la regadera sigue a la mano (también queda en el .glb)
+  const armR = arms[1], armMesh = armR.children[0];
+  const armBase = { sy: armMesh.scale.y, py: armMesh.position.y }, handBaseY = hands[1].position.y;
+  const down = new THREE.Vector3(0, -1, 0), q = new THREE.Quaternion();
   function follow() {
-    if (current !== 'botanico') return;
-    root.updateMatrixWorld(true);
-    regadera.position.copy(root.worldToLocal(hands[1].getWorldPosition(v)));
+    armMesh.scale.y = armBase.sy; armMesh.position.y = armBase.py; hands[1].position.y = handBaseY;
+    if (current === 'lupa') {
+      root.updateMatrixWorld(true);
+      // el brazo apunta al mango y se estira hasta alcanzarlo
+      const d = root.worldToLocal(grip.getWorldPosition(v)).sub(armR.position);
+      const len = d.length(), reach = -(armBase.py - armBase.sy) ; // largo del brazo en reposo
+      q.setFromUnitVectors(down, d.normalize());
+      armR.quaternion.copy(q);
+      const k = Math.max(1, len / reach);
+      armMesh.scale.y = armBase.sy * k; armMesh.position.y = armBase.py * k; hands[1].position.y = handBaseY * k;
+      // el ojo se ve agrandado a través del vidrio
+      eyes[1].scale.multiplyScalar(1.25);
+      root.updateMatrixWorld(true);
+    }
+    if (current === 'botanico') {
+      root.updateMatrixWorld(true);
+      regadera.position.copy(root.worldToLocal(hands[1].getWorldPosition(v)));
+    }
   }
   // animación en vivo: el agua cae y la plantita se mece
   function update(t) {
@@ -157,5 +187,5 @@ export function createProps({ root, arms, face, eyes, patch }) {
       d.scale.setScalar(u > 0.92 ? (1 - u) / 0.08 : 1);
     });
   }
-  return { set, follow, update, get current() { return current; }, liveOnly: [agua], nodes: [regadera] };
+  return { set, follow, update, get current() { return current; }, liveOnly: [agua], nodes: [regadera, armMesh] };
 }
