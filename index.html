@@ -90,20 +90,24 @@
   <form method="dialog" class="dlg">
     <div class="dlg-head"><div><div class="eyebrow">Exportación</div><h2>Llevate a Awi.</h2></div><button class="icon" value="cancel" title="Cerrar"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
     <div class="fmt">
+      <div class="fmt-sec">Animación completa</div>
       <label class="fmt-row"><input type="checkbox" id="fMp4" checked><span><b>MP4</b><small>Video listo para compartir.</small></span></label>
       <div class="fmt-opts" id="mp4Opts">
         <label class="field">Formato <select id="mp4Size"><option value="1080x1080">Cuadrado 1080×1080</option><option value="1080x1920">Vertical 1080×1920</option><option value="1920x1080">Horizontal 1920×1080</option></select></label>
         <label class="field">Fondo <select id="mp4Bg"><option value="#f4eee8">Crema</option><option value="#ffffff">Blanco</option><option value="#00b140">Verde croma</option></select></label>
         <label class="field">Repeticiones <select id="mp4Loops"><option>1</option><option selected>2</option><option>3</option><option>4</option></select></label>
       </div>
-      <label class="fmt-row"><input type="checkbox" id="fPng"><span><b>PNG</b><small>Foto del momento actual (<span id="pngTime">0.00 s</span>) en alta resolución.</small></span></label>
+      <label class="fmt-row"><input type="checkbox" id="fGlb"><span><b>.glb</b><small>Modelo 3D con rig, morphs y el clip animado.</small></span></label>
+      <label class="fmt-row"><input type="checkbox" id="fBlend"><span><b>.blend</b><small id="blendNote">Proyecto editable en Blender.</small></span></label>
+      <label class="fmt-row"><input type="checkbox" id="fJson"><span><b>Proyecto .json</b><small>Para volver a abrirlo en este editor.</small></span></label>
+      <div class="fmt-sec">Este momento · <span class="momentTime">0.00 s</span></div>
+      <label class="fmt-row"><input type="checkbox" id="fPng"><span><b>PNG</b><small>Foto en alta resolución.</small></span></label>
       <div class="fmt-opts off" id="pngOpts">
         <label class="field">Formato <select id="pngSize"><option value="2048x2048">Cuadrado 2048×2048</option><option value="1440x2560">Vertical 1440×2560</option><option value="2560x1440">Horizontal 2560×1440</option></select></label>
         <label class="field">Fondo <select id="pngBg"><option value="transparent">Transparente</option><option value="#f4eee8">Crema</option><option value="#ffffff">Blanco</option></select></label>
       </div>
-      <label class="fmt-row"><input type="checkbox" id="fGlb"><span><b>.glb</b><small>Modelo 3D con rig, morphs y el clip animado.</small></span></label>
-      <label class="fmt-row"><input type="checkbox" id="fBlend"><span><b>.blend</b><small id="blendNote">Proyecto editable en Blender.</small></span></label>
-      <label class="fmt-row"><input type="checkbox" id="fJson"><span><b>Proyecto .json</b><small>Para volver a abrirlo en este editor.</small></span></label>
+      <label class="fmt-row"><input type="checkbox" id="fBlendFrame"><span><b>.blend de la pose</b><small>Awi quieto en esta pose (con su objeto), para editar o renderizar en Blender.</small></span></label>
+      <label class="fmt-row"><input type="checkbox" id="fStl"><span><b>STL</b><small>Malla de esta pose para imprimir en 3D (~85 mm de alto, Z hacia arriba).</small></span></label>
     </div>
     <ul class="jobs" id="jobs"></ul>
     <div class="dlg-foot"><button class="btn" value="cancel">Cerrar</button><button class="btn primary" id="doExport" type="button">Descargar</button></div>

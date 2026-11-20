@@ -3,6 +3,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { createAwi } from './awi.js';
 import { createAura, AWI_LAYER } from './aura.js';
+import { PROPS } from './props.js';
 import { CHANNELS, CH, GROUPS, PRESETS, buildPreset, samplePose, defaultPose, normalizePose, newId } from './anim.js';
 
 const FPS = 30;
@@ -85,11 +86,11 @@ function loadProject() {
 function sanitize(p) {
   if (!p || !Array.isArray(p.keys)) throw new Error('Archivo de proyecto inválido');
   const keys = p.keys.filter((k) => typeof k.t === 'number').map((k) => ({ id: newId(), t: Math.min(0.999, Math.max(0, k.t)), pose: normalizePose(k.pose) })).sort((a, b) => a.t - b.t);
-  return { preset: typeof p.preset === 'string' ? p.preset : null, duration: clamp(+p.duration || 2, 0.5, 20), speed: clamp(+p.speed || 1, 0.1, 4), loop: p.loop !== false, ...Object.fromEntries(Object.entries(SPIRIT).map(([k, d]) => [k, clamp(typeof p[k] === 'number' ? p[k] : d, 0, 1)])), keys: keys.length ? keys : [{ id: newId(), t: 0, pose: defaultPose() }] };
+  return { prop: PROPS[p.prop] ? p.prop : 'ninguno', preset: typeof p.preset === 'string' ? p.preset : null, duration: clamp(+p.duration || 2, 0.5, 20), speed: clamp(+p.speed || 1, 0.1, 4), loop: p.loop !== false, ...Object.fromEntries(Object.entries(SPIRIT).map(([k, d]) => [k, clamp(typeof p[k] === 'number' ? p[k] : d, 0, 1)])), keys: keys.length ? keys : [{ id: newId(), t: 0, pose: defaultPose() }] };
 }
 let saveTimer = 0;
 function save() { clearTimeout(saveTimer); saveTimer = setTimeout(() => { try { localStorage.setItem(STORE, JSON.stringify(serialize())); } catch {} }, 250); }
-const serialize = () => ({ app: 'awi-animator', version: 1, preset: proj.preset, duration: proj.duration, speed: proj.speed, loop: proj.loop, jelly: proj.jelly, flow: proj.flow, soft: proj.soft, grain: proj.grain, keys: proj.keys.map(({ t, pose }) => ({ t, pose })) });
+const serialize = () => ({ app: 'awi-animator', version: 1, prop: proj.prop ?? 'ninguno', preset: proj.preset, duration: proj.duration, speed: proj.speed, loop: proj.loop, jelly: proj.jelly, flow: proj.flow, soft: proj.soft, grain: proj.grain, keys: proj.keys.map(({ t, pose }) => ({ t, pose })) });
 function pushUndo() { undoStack.push(JSON.stringify(proj)); if (undoStack.length > 60) undoStack.shift(); }
 function undo() { const s = undoStack.pop(); if (!s) return; proj = JSON.parse(s); if (!proj.keys.find((k) => k.id === selectedId)) selectedId = null; time = Math.min(time, proj.duration - 1e-4); changed(); }
 function clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
@@ -164,6 +165,16 @@ for (const k of Object.keys(SPIRIT)) {
   inp.addEventListener('pointerdown', () => pushUndo());
   inp.addEventListener('input', () => { proj[k] = +inp.value; changed(); });
 }
+// objeto que usa AWI (uno por proyecto; los presets con objeto lo eligen solos)
+const propEl = document.createElement('section'); propEl.className = 'pgroup';
+propEl.innerHTML = `<div class="plabel">Objeto</div><div class="presets props">${Object.entries(PROPS).map(([id, label]) => `<button class="preset prop" data-prop="${id}"><span>${label}</span></button>`).join('')}</div>`;
+presetsEl.closest('.pgroup').after(propEl);
+propEl.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-prop]'); if (!b) return;
+  pushUndo(); proj.prop = b.dataset.prop;
+  proj.preset = proj.preset && !proj.preset.endsWith('*') ? proj.preset + '*' : proj.preset;
+  changed();
+});
 const groupsEl = $('#groups');
 const ctlEls = {};
 GROUPS.forEach((g, gi) => {
@@ -317,7 +328,7 @@ canvas.addEventListener('pointerup', endAwi); canvas.addEventListener('pointerca
 /* ───────────── refresco ───────────── */
 let hintTimer = 0, hintMsg = '';
 function flash(msg) { hintMsg = msg; clearTimeout(hintTimer); hintTimer = setTimeout(() => { hintMsg = ''; refresh(); }, 2400); refresh(); }
-function changed() { for (const k in SPIRIT) proj[k] ??= SPIRIT[k]; awi.settings.jelly = proj.jelly; awi.settings.flow = proj.flow; save(); renderTimeline(); refresh(); }
+function changed() { for (const k in SPIRIT) proj[k] ??= SPIRIT[k]; proj.prop ??= 'ninguno'; awi.setProp(proj.prop); awi.settings.jelly = proj.jelly; awi.settings.flow = proj.flow; save(); renderTimeline(); refresh(); }
 function refresh() {
   const p = currentPose();
   if (!exporting) poseScene(p);
@@ -330,6 +341,7 @@ function refresh() {
   const base = proj.preset?.replace('*', '');
   $('#roPreset').textContent = base ? PRESETS[base].label + (proj.preset.endsWith('*') ? ' (editado)' : '') : 'Personalizado';
   presetsEl.querySelectorAll('.preset').forEach((b) => b.classList.toggle('on', b.dataset.id === base));
+  propEl.querySelectorAll('[data-prop]').forEach((b) => b.classList.toggle('on', b.dataset.prop === (proj.prop ?? 'ninguno')));
   $('#loopBtn').classList.toggle('on', proj.loop);
   for (const k of Object.keys(SPIRIT)) { const inp = document.getElementById('s-' + k); if (document.activeElement !== inp) inp.value = proj[k] ?? SPIRIT[k]; document.getElementById('o-' + k).textContent = (proj[k] ?? SPIRIT[k]).toFixed(2); }
   if (document.activeElement !== durInput) durInput.value = proj.duration;
@@ -393,7 +405,7 @@ async function checkService() {
     ? 'Proyecto editable en Blender, generado por el servicio de exportación.'
     : 'Proyecto editable en Blender. Sin servicio de exportación activo: se descarga un kit (.glb + script) que lo arma en Blender en un paso.';
 }
-$('#exportBtn').onclick = () => { setPlaying(false); $('#pngTime').textContent = time.toFixed(2) + ' s'; checkService(); $('#jobs').innerHTML = ''; dlg.showModal(); };
+$('#exportBtn').onclick = () => { setPlaying(false); document.querySelectorAll('.momentTime').forEach((e) => (e.textContent = time.toFixed(2) + ' s')); checkService(); $('#jobs').innerHTML = ''; dlg.showModal(); };
 $('#fMp4').addEventListener('change', (e) => $('#mp4Opts').classList.toggle('off', !e.target.checked));
 $('#fPng').addEventListener('change', (e) => $('#pngOpts').classList.toggle('off', !e.target.checked));
 
@@ -414,7 +426,7 @@ function jobRow(label) {
 }
 $('#doExport').onclick = async () => {
   const pngAt = time;
-  const want = { png: $('#fPng').checked, mp4: $('#fMp4').checked, glb: $('#fGlb').checked, blend: $('#fBlend').checked, json: $('#fJson').checked };
+  const want = { blendF: $('#fBlendFrame').checked, stl: $('#fStl').checked, png: $('#fPng').checked, mp4: $('#fMp4').checked, glb: $('#fGlb').checked, blend: $('#fBlend').checked, json: $('#fJson').checked };
   if (!Object.values(want).some(Boolean)) { $('#jobs').innerHTML = '<li class="job err"><div class="msg">Elegí al menos un formato.</div></li>'; return; }
   const btn = $('#doExport'); btn.disabled = true; $('#jobs').innerHTML = '';
   const snapshot = JSON.parse(JSON.stringify(proj));
@@ -424,12 +436,26 @@ $('#doExport').onclick = async () => {
   if (want.blend) rows.blend = jobRow('.blend');
   if (want.json) rows.json = jobRow('.json');
   if (want.png) rows.png = jobRow('PNG');
+  if (want.blendF) rows.blendF = jobRow('.blend pose');
+  if (want.stl) rows.stl = jobRow('STL');
   let glbCache = null;
   const getGlb = async () => (glbCache ||= await buildGLB(snapshot));
   try {
     if (want.png) {
       try { rows.png.progress(0.4, 'Renderizando la foto…'); const { b, w, h } = await exportPNG(snapshot, pngAt); rows.png.ok(`Descargado · ${w}×${h} · ${pngAt.toFixed(2)} s · ${(b.size / 1048576).toFixed(1)} MB.`); }
       catch (e) { console.error(e); rows.png.err('No se pudo generar el PNG: ' + e.message); }
+    }
+    if (want.blendF) {
+      try { await exportBlend(snapshot, () => buildFrameGLB(snapshot, pngAt), rows.blendF, { frame: pngAt }); }
+      catch (e) { console.error(e); rows.blendF.err('No se pudo generar el .blend de la pose: ' + e.message); }
+    }
+    if (want.stl) {
+      try {
+        rows.stl.progress(0.4, 'Armando la malla…');
+        const { blob, count } = buildSTL(snapshot, pngAt);
+        download(blob, `${baseName()}_${pngAt.toFixed(2)}s.stl`);
+        rows.stl.ok(`Descargado · ${(blob.size / 1048576).toFixed(1)} MB · ${count.toLocaleString('es')} triángulos · ~85 mm de alto, Z hacia arriba.`);
+      } catch (e) { console.error(e); rows.stl.err('No se pudo generar el STL: ' + e.message); }
     }
     if (want.json) { download(new Blob([JSON.stringify(serialize(), null, 2)], { type: 'application/json' }), baseName() + '.json'); rows.json.ok('Descargado.'); }
     if (want.glb) {
@@ -458,8 +484,12 @@ function frameTimes(p, loops = 1) {
   return { n, anim: (i) => (i / FPS) * p.speed };
 }
 
+// objetos del proyecto visibles y efectos en vivo (agua) ocultos mientras se arma un archivo 3D
+function prepProps(p) { awi.setProp(p.prop ?? 'ninguno'); awi.liveOnly.forEach((o) => (o.visible = false)); }
+
 async function buildGLB(p) {
   exporting = true;
+  prepProps(p);
   try {
     const { n, anim } = frameTimes(p);
     const count = n + 1;
@@ -483,24 +513,69 @@ async function buildGLB(p) {
     awi.apply(samplePose(p, 0));
     const res = await new GLTFExporter().parseAsync(awi.root, { binary: true, animations: [clip] });
     return new Blob([res], { type: 'model/gltf-binary' });
-  } finally { exporting = false; poseScene(currentPose()); }
+  } finally { exporting = false; awi.setProp(proj.prop ?? 'ninguno'); poseScene(currentPose()); }
 }
 
-async function exportBlend(p, getGlb, row) {
-  row.progress(0.15, 'Generando modelo animado…');
+// un solo momento: el modelo posado (con morphs y objetos), sin animación
+async function buildFrameGLB(p, at) {
+  exporting = true;
+  prepProps(p);
+  try {
+    awi.apply(samplePose(p, at));
+    const res = await new GLTFExporter().parseAsync(awi.root, { binary: true, animations: [] });
+    return new Blob([res], { type: 'model/gltf-binary' });
+  } finally { exporting = false; awi.setProp(proj.prop ?? 'ninguno'); poseScene(currentPose()); }
+}
+
+// STL binario del momento: malla posada en milímetros (~85 mm de alto), con Z hacia arriba para imprimir
+function buildSTL(p, at, mmPerUnit = 30) {
+  exporting = true;
+  prepProps(p);
+  try {
+    awi.apply(samplePose(p, at));
+    const toPrint = new THREE.Matrix4().makeRotationX(Math.PI / 2).premultiply(new THREE.Matrix4().makeScale(mmPerUnit, mmPerUnit, mmPerUnit));
+    const rootInv = awi.root.matrixWorld.clone().invert();
+    const tris = [];
+    const v = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+    awi.root.traverseVisible((o) => {
+      if (!o.isMesh || o.material.transparent) return; // vidrios y lentes no se imprimen
+      const m = new THREE.Matrix4().multiplyMatrices(rootInv, o.matrixWorld).premultiply(toPrint);
+      const g = o.geometry, idx = g.index, n = idx ? idx.count : g.attributes.position.count;
+      for (let i = 0; i < n; i += 3) {
+        for (let k = 0; k < 3; k++) { o.getVertexPosition(idx ? idx.getX(i + k) : i + k, v[k]); v[k].applyMatrix4(m); }
+        tris.push(v[0].x, v[0].y, v[0].z, v[1].x, v[1].y, v[1].z, v[2].x, v[2].y, v[2].z);
+      }
+    });
+    const count = tris.length / 9, buf = new ArrayBuffer(84 + count * 50), dv = new DataView(buf);
+    const head = 'AWI Animator - pose exportada';
+    for (let i = 0; i < head.length; i++) dv.setUint8(i, head.charCodeAt(i));
+    dv.setUint32(80, count, true);
+    const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), nrm = new THREE.Vector3();
+    for (let t = 0; t < count; t++) {
+      const o = 84 + t * 50, q = t * 9;
+      a.fromArray(tris, q); b.fromArray(tris, q + 3); c.fromArray(tris, q + 6);
+      nrm.subVectors(c, b).cross(a.clone().sub(b)).normalize();
+      [nrm, a, b, c].forEach((vec, j) => { dv.setFloat32(o + j * 12, vec.x, true); dv.setFloat32(o + j * 12 + 4, vec.y, true); dv.setFloat32(o + j * 12 + 8, vec.z, true); });
+    }
+    return { blob: new Blob([buf], { type: 'model/stl' }), count };
+  } finally { exporting = false; awi.setProp(proj.prop ?? 'ninguno'); poseScene(currentPose()); }
+}
+
+async function exportBlend(p, getGlb, row, { frame = null } = {}) {
+  row.progress(0.15, frame === null ? 'Generando modelo animado…' : 'Posando a Awi en este momento…');
   const glb = await getGlb();
+  const name = frame === null ? baseName() : `${baseName()}_${frame.toFixed(2)}s`;
   if (service?.blender) {
     row.progress(0.4, 'Blender está armando el proyecto en el servicio de exportación…');
-    const frames = Math.round((p.duration / p.speed) * FPS);
-    const r = await fetch(`api/blend?fps=${FPS}&frames=${frames}&name=${encodeURIComponent(baseName())}`, { method: 'POST', body: glb, headers: { 'Content-Type': 'model/gltf-binary' } });
+    const frames = frame === null ? Math.round((p.duration / p.speed) * FPS) : 1;
+    const r = await fetch(`api/blend?fps=${FPS}&frames=${frames}&name=${encodeURIComponent(name)}`, { method: 'POST', body: glb, headers: { 'Content-Type': 'model/gltf-binary' } });
     if (!r.ok) throw new Error((await r.text().catch(() => '')) || `el servicio respondió ${r.status}`);
-    const b = await r.blob(); download(b, baseName() + '.blend');
-    row.ok(`Descargado · ${(b.size / 1048576).toFixed(1)} MB · abre en Blender con rig y animación.`);
+    const b = await r.blob(); download(b, name + '.blend');
+    row.ok(`Descargado · ${(b.size / 1048576).toFixed(1)} MB · ${frame === null ? 'abre en Blender con rig y animación.' : 'la pose de este momento, lista para editar.'}`);
     return;
   }
   row.progress(0.6, 'Armando kit para Blender…');
   const [{ zipSync, strToU8 }, script] = await Promise.all([import('fflate'), fetch('blender/awi_to_blend.py').then((r) => { if (!r.ok) throw new Error('falta blender/awi_to_blend.py'); return r.text(); })]);
-  const name = baseName();
   const readme = `AWI · kit para Blender\n\n1. Descomprimí esta carpeta.\n2. En una terminal, dentro de la carpeta:\n\n   blender -b -P awi_to_blend.py -- ${name}.glb ${name}.blend\n\n   (opcional, también renderiza el MP4 con Blender)\n   blender -b -P awi_to_blend.py -- ${name}.glb ${name}.blend ${name}.mp4\n\nO abrí Blender > Scripting > abrí awi_to_blend.py > Run Script (busca el .glb al lado del script).\n\nEl .blend queda con la cámara frontal fija, luces, fondo crema y la animación a ${FPS} fps.\n`;
   const zip = zipSync({ [`${name}/${name}.glb`]: new Uint8Array(await glb.arrayBuffer()), [`${name}/awi_to_blend.py`]: strToU8(script), [`${name}/LEEME.txt`]: strToU8(readme) });
   download(new Blob([zip], { type: 'application/zip' }), name + '_blender_kit.zip');
@@ -528,7 +603,7 @@ async function exportMP4(p, { w, h, bg, loops }, onProgress) {
   const env = envFor(r);
   exporting = true;
   try {
-    scene.background = new THREE.Color(bg); scene.environment = env;
+    scene.background = new THREE.Color(bg); scene.environment = env; awi.setProp(p.prop ?? 'ninguno');
     const { n, anim } = frameTimes(p, loops);
     const savedSettings = { ...awi.settings };
     Object.assign(awi.settings, { jelly: p.jelly ?? SPIRIT.jelly, flow: p.flow ?? SPIRIT.flow });
@@ -571,7 +646,7 @@ async function renderStill(p, { w = 2048, h = 2048, bg = BG, t = 0 } = {}) {
   const prevBg = scene.background, prevEnv = scene.environment;
   exporting = true;
   try {
-    scene.background = transparent ? null : new THREE.Color(bg); scene.environment = env;
+    scene.background = transparent ? null : new THREE.Color(bg); scene.environment = env; awi.setProp(p.prop ?? 'ninguno');
     Object.assign(awi.settings, { jelly: p.jelly ?? SPIRIT.jelly, flow: p.flow ?? SPIRIT.flow });
     awi.resetJelly();
     const steps = Math.round(Math.max(t, 1 / FPS) * FPS);
@@ -600,4 +675,4 @@ $('#pngBtn').onclick = async () => {
 };
 
 window.__awiDebug = { renderer, scene, camera, aura, awi, poseScene, currentPose: () => currentPose() };
-window.__awi = { exportPNG, renderStill, buildPreset, get proj() { return proj; }, buildGLB, exportMP4, samplePose };
+window.__awi = { buildSTL, buildFrameGLB, exportPNG, renderStill, buildPreset, get proj() { return proj; }, buildGLB, exportMP4, samplePose };

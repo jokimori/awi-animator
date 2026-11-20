@@ -27,6 +27,7 @@ export const CHANNELS = [
   { id: 'armLSwing', g: 'brazos', label: 'Izquierdo · adelante', min: -80, max: 80, step: 1, def: 0, unit: '°', hint: ['atrás', 'adelante'] },
   { id: 'armRRaise', g: 'brazos', label: 'Derecho · subir', min: -20, max: 170, step: 1, def: 0, unit: '°', hint: ['abajo', 'arriba'] },
   { id: 'armRSwing', g: 'brazos', label: 'Derecho · adelante', min: -80, max: 80, step: 1, def: 0, unit: '°', hint: ['atrás', 'adelante'] },
+  { id: 'sit', g: 'piernas', label: 'Parado / sentado', min: 0, max: 1, step: 0.01, def: 0, hint: ['parado', 'sentado'] },
   { id: 'legLStep', g: 'piernas', label: 'Izquierda · paso', min: -50, max: 50, step: 1, def: 0, unit: '°', hint: ['atrás', 'adelante'] },
   { id: 'legRStep', g: 'piernas', label: 'Derecha · paso', min: -50, max: 50, step: 1, def: 0, unit: '°', hint: ['atrás', 'adelante'] },
   { id: 'legSpread', g: 'piernas', label: 'Apertura', min: -5, max: 30, step: 1, def: 0, unit: '°', hint: ['juntas', 'abiertas'] },
@@ -93,6 +94,39 @@ const PRESET_DEFS = {
     [1.35, { posX: -0.03, armLRaise: 32, armRRaise: 12 }],
     [1.48, { posX: 0, squash: 0.08, armLRaise: 22, armRRaise: 22, bow: 12 }],
   ] },
+  meditando: { label: 'Meditando', color: '#8f7fd6', duration: 6,
+    base: { sit: 1, eyeHappy: 0.5, mouthSmile: 0.25, armLRaise: 30, armRRaise: 30, armLSwing: 50, armRSwing: 50, agit: 0.03, warm: -0.08, posY: 0.1 }, keys: [
+    [0, { posY: 0.1, squash: 0 }],
+    [1.5, { posY: 0.2, squash: -0.05, armLRaise: 35, armRRaise: 35 }],
+    [3, { posY: 0.1, squash: 0.04, armLRaise: 30, armRRaise: 30 }],
+    [4.5, { posY: 0.2, squash: -0.05, armLRaise: 35, armRRaise: 35 }],
+  ] },
+  curioso: { label: 'Curioso', color: '#d9a84c', duration: 3.2, prop: 'lupa',
+    base: { armRRaise: 18, armRSwing: 72, armLRaise: 10, lookX: 0.12, lookY: 0.05, eyeOpen: 1.15, bow: 6, mouthSmile: 0.15, mouthOpen: 0.25, agit: 0.2 }, keys: [
+    [0, { turn: 0, lookX: 0.12, armRSwing: 72 }],
+    [0.9, { turn: -12, lookX: 0.2, armRSwing: 78, armRRaise: 24, bow: 10 }],
+    [1.5, { eyeOpen: 1.15 }], [1.6, { eyeOpen: 0.08 }], [1.72, { eyeOpen: 1.15 }],
+    [2.2, { turn: 8, lookX: 0.05, armRSwing: 68, armRRaise: 14, bow: 4 }],
+  ] },
+  leyendo: { label: 'Leyendo', color: '#2f7d5d', duration: 4, prop: 'libro',
+    base: { armLRaise: 28, armRRaise: 28, armLSwing: 80, armRSwing: 80, lookY: -0.6, eyeOpen: 0.85, mouthSmile: 0.2, agit: 0.05, bow: 5 }, keys: [
+    [0, { lookX: -0.3 }], [1.6, { lookX: 0.3 }], [1.85, { lookX: -0.3 }],
+    [2.6, { eyeOpen: 0.85 }], [2.7, { eyeOpen: 0.08 }], [2.82, { eyeOpen: 0.85 }],
+    [3.6, { lookX: 0.2 }],
+  ] },
+  cine: { label: 'En el cine', color: '#e23a3f', duration: 3, prop: 'cine',
+    base: { sit: 1, eyeOpen: 1.15, mouthSmile: 0.3, agit: 0.1, armLRaise: 18, armLSwing: 55, armRRaise: 18, armRSwing: 55 }, keys: [
+    [0, { armRSwing: 55, armRRaise: 18, mouthOpen: 0 }],
+    [0.55, { armRSwing: 82, armRRaise: 58, mouthOpen: 0.5 }],
+    [0.85, { armRSwing: 55, armRRaise: 18, mouthOpen: 0.1 }],
+    [1.05, { mouthOpen: 0.35 }], [1.25, { mouthOpen: 0 }],
+    [2.0, { lookX: 0.15 }], [2.6, { lookX: -0.1 }],
+  ] },
+  botanico: { label: 'Botánico', color: '#5daf6c', duration: 3, prop: 'botanico',
+    base: { armRRaise: 70, armRSwing: 20, turn: -14, lookX: 0.45, lookY: -0.35, eyeHappy: 0.85, mouthSmile: 0.6, agit: 0.08, lean: 4 }, keys: [
+    [0, { armRRaise: 68, squash: 0 }],
+    [1.5, { armRRaise: 76, squash: 0.03 }],
+  ] },
 };
 export const PRESETS = Object.fromEntries(Object.entries(PRESET_DEFS).map(([id, p]) => [id, { label: p.label, color: p.color }]));
 
@@ -102,7 +136,7 @@ export function buildPreset(id) {
   const soften = (o) => ('squash' in o ? { ...o, squash: o.squash * 0.55 } : o);
   let pose = { ...defaultPose(), ...soften(def.base) };
   const keys = def.keys.map(([t, over]) => { pose = { ...pose, ...soften(over) }; return { id: newId(), t: t / def.duration, pose: { ...pose } }; });
-  return { preset: id, duration: def.duration, speed: 1, loop: true, keys };
+  return { preset: id, duration: def.duration, speed: 1, loop: true, prop: def.prop || 'ninguno', keys };
 }
 
 // Interpolación Catmull-Rom no uniforme por canal (con cierre cíclico si loop).

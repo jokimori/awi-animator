@@ -43,3 +43,15 @@ Atajos: espacio para reproducir o pausar, K para agregar un keyframe, Supr para 
 - **Aura (`aura.js`):** AWI se renderiza solo en una capa propia y después se difumina en dos escalas. Al componerlo sobre el fondo, los bordes se desvanecen en un halo claro, las uniones entre extremidades se funden y se suma grano de aerógrafo. Se controla con *Difuminado* y *Grano*. Se ve en la web y en el MP4.
 - **Vidrio líquido:** material con barniz, iridiscencia suave y borde brillante. El degradado se deforma en remolinos y tiene vetas de luz que viajan por dentro.
 - **Movimiento líquido:** lóbulos que se hinchan y se retraen, balanceo suave y un canal animable de *Agitación*: Enojado va rápido y grumoso, Triste casi quieto.
+
+## Sentado y objetos
+
+- **Parado / sentado** (en Piernas): de 0 (parado) a 1 (sentado con las piernas cruzadas). Se puede animar con keyframes. Lo usa el preset **Meditando**, en el que además flota y respira despacio.
+- **Objeto** (en el panel): Lupa, Libro, Cine (pochoclos y anteojos 3D) o Botánico (maceta y regadera que riega). Los presets **Curioso**, **Leyendo**, **En el cine** y **Botánico** ya traen su objeto. Los objetos van en el MP4, el PNG, el `.glb`, el `.blend` y el STL; el agua de la regadera solo aparece en la web, el MP4 y el PNG.
+
+## Exportar un momento
+
+En **Exportar → Este momento**, para el tiempo donde está el cursor:
+- **PNG** en alta resolución, con fondo transparente, crema o blanco.
+- **.blend de la pose**: AWI quieto en esa pose, con su objeto.
+- **STL** para imprimir en 3D: malla posada de unos 85 mm de alto, con Z hacia arriba. Los vidrios y lentes no se incluyen.

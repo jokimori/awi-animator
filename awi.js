@@ -9,6 +9,7 @@
 //    └─ AWI_legL / AWI_legR (caderas)
 import * as THREE from 'three';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { createProps } from './props.js';
 
 // Paleta (sRGB) tomada de la ilustración original
 const C = { deep: '#0a2077', blue: '#1366ff', orange: '#ff8a47', limb: '#2343d6' };
@@ -180,6 +181,7 @@ const BODY_CENTER = 0.95;    // centro del cuerpo respecto de su base
 const ARM_Y = -0.4;          // hombros respecto al centro
 const EYE_X = 0.385, EYE_Y = 0.27, MOUTH_Y = 0.055;
 const BODY_BASE = 0.3, BODY_HEIGHT = 2.55;
+const SIT_DROP = 0.3; // cuánto baja el cuerpo al sentarse
 
 const VERT_HEAD = /* glsl */`
 uniform mat4 uRoot; uniform mat4 uRootInv; uniform vec3 uJig; uniform float uDs; uniform float uTime; uniform float uWobble;
@@ -259,9 +261,10 @@ export function createAwi() {
   const patch = (m, kind) => {
     m.onBeforeCompile = (sh) => {
       Object.assign(sh.uniforms, U);
-      sh.vertexShader = (kind === 'feat' ? '#define AWI_FEAT\n' : '') + VERT_HEAD + sh.vertexShader.replace('#include <project_vertex>', VERT_BODY);
+      const rigid = kind === 'feat' || kind === 'prop'; // rasgos y objetos: se mueven con el cuerpo sin deformarse
+      sh.vertexShader = (rigid ? '#define AWI_FEAT\n' : '') + VERT_HEAD + sh.vertexShader.replace('#include <project_vertex>', VERT_BODY);
       sh.fragmentShader = FRAG_HEAD + sh.fragmentShader;
-      if (kind !== 'feat') {
+      if (!rigid) {
         sh.fragmentShader = sh.fragmentShader
           .replace('#include <color_fragment>', '#include <color_fragment>\n' + (kind === 'limb' ? '#define AWI_LIMB\n' : '') + FRAG_GRAD)
           .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += diffuseColor.rgb * uGlow;\nfloat awiFr = 1.0 - clamp( dot( normalize( vNormal ), normalize( vViewPosition ) ), 0.0, 1.0 );\ntotalEmissiveRadiance += mix( diffuseColor.rgb, vec3( 0.55, 0.6, 0.75 ), 0.35 ) * pow( awiFr, 2.2 ) * uHaze;\ntotalEmissiveRadiance += mix( diffuseColor.rgb * 1.8, vec3( 0.85, 0.93, 1.0 ), 0.55 ) * pow( awiFr, 3.2 ) * uRim;');
@@ -324,19 +327,26 @@ export function createAwi() {
   const legs = [-1, 1].map((s) => {
     const l = new THREE.Group(); l.name = s < 0 ? 'AWI_legL' : 'AWI_legR';
     l.position.set(s * 0.35, 0.52, 0.04);
+    l.rotation.order = 'YXZ'; // así "sentado" apunta la pierna hacia adelante y después la cruza hacia adentro
     const m = new THREE.Mesh(new THREE.CapsuleGeometry(0.205, 0.11, 12, 28), limbMat); m.name = l.name + '_mesh';
     m.position.y = -0.265; l.add(m); root.add(l); return l;
   });
-  root.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  const props = createProps({ root, arms, face, eyes, patch: (m) => patch(m, 'prop') });
+  root.traverse((o) => { if (o.isMesh && !o.material.transparent) o.castShadow = true; });
 
   const D2R = Math.PI / 180;
-  let lastSquash = 0, lastAgit = 0.15, mt = 0, gt = 0;
+  let lastSquash = 0, lastAgit = 0.15, mt = 0, gt = 0, pt = 0;
   function apply(p) {
     root.position.set(p.posX, p.posY, 0);
     root.rotation.set((p.bow ?? 0) * D2R, p.turn * D2R, -p.lean * D2R);
-    const sy = 1 - p.squash, sxz = 1 / Math.sqrt(Math.max(0.2, sy));
-    lastSquash = p.squash;
+    // sentado: el cuerpo baja hasta el piso (con un leve aplastamiento por el peso) y las piernas se cruzan adelante
+    const sit = THREE.MathUtils.clamp(p.sit ?? 0, 0, 1), drop = SIT_DROP * sit;
+    const sq = p.squash + 0.04 * sit;
+    const sy = 1 - sq, sxz = 1 / Math.sqrt(Math.max(0.2, sy));
+    lastSquash = sq;
+    bodyPivot.position.y = BODY_PIVOT_Y - drop;
     bodyPivot.scale.set(sxz, sy, sxz);
+    U.uBase.value = BODY_BASE - drop; U.uCenter.value.y = BODY_PIVOT_Y + BODY_CENTER - drop;
     const w = [p.inflado, p.caido, p.estirado];
     for (let i = 0; i < 3; i++) body.morphTargetInfluences[i] = w[i];
     face.position.set(p.lookX * 0.12, p.lookY * 0.09, faceZ0 + w.reduce((s, v, i) => s + v * faceDZ[i], 0));
@@ -363,7 +373,7 @@ export function createAwi() {
     // mezcla bilineal: cada combinación de sonrisa/ceño y apertura tiene su propia forma
     const sm = Math.max(0, p.mouthSmile), fr = Math.max(0, -p.mouthSmile), op = p.mouthOpen;
     mi[0] = sm * (1 - op); mi[1] = fr * (1 - op); mi[2] = op * (1 - sm - fr); mi[3] = sm * op; mi[4] = fr * op;
-    const armY = BODY_PIVOT_Y + (BODY_CENTER + ARM_Y) * sy;
+    const armY = BODY_PIVOT_Y - drop + (BODY_CENTER + ARM_Y) * sy;
     arms.forEach((a, i) => {
       const s = i === 0 ? -1 : 1;
       const x = s > 0 ? w.reduce((t, v, k) => t + v * sideRD[k], sideR0) : w.reduce((t, v, k) => t + v * sideLD[k], sideL0);
@@ -373,18 +383,20 @@ export function createAwi() {
     });
     legs.forEach((l, i) => {
       const s = i === 0 ? -1 : 1;
-      l.rotation.set(-(i === 0 ? p.legLStep : p.legRStep) * D2R, 0, s * p.legSpread * D2R);
+      l.position.set(s * (0.35 - 0.04 * sit), 0.52 - drop, 0.04 + 0.2 * sit);
+      l.rotation.set(-((i === 0 ? p.legLStep : p.legRStep) + 84 * sit) * D2R, -s * 40 * sit * D2R, s * p.legSpread * D2R);
     });
     U.uWarm.value = p.warm ?? 0;
     lastAgit = p.agit ?? 0.15;
     root.updateMatrixWorld(true);
+    props.follow();
   }
 
   /* ── gelatina: un resorte sigue la "copa" del cuerpo y otro el aplastamiento ── */
   const J = { p: new THREE.Vector3(), v: new THREE.Vector3(), s: 0, sv: 0, init: false };
   const target = new THREE.Vector3(), tmpQ = new THREE.Quaternion(), off = new THREE.Vector3();
   const settings = { jelly: 0.6, flow: 0.6 };
-  function resetJelly() { J.init = false; J.v.set(0, 0, 0); J.sv = 0; mt = 0; gt = 0; }
+  function resetJelly() { J.init = false; J.v.set(0, 0, 0); J.sv = 0; mt = 0; gt = 0; pt = 0; }
   function update(dt, time) {
     body.localToWorld(target.set(0.15, 1.2, 0));
     if (!J.init || J.p.distanceTo(target) > 2) { J.p.copy(target); J.v.set(0, 0, 0); J.s = lastSquash; J.sv = 0; J.init = true; }
@@ -408,12 +420,14 @@ export function createAwi() {
     gt += dt * (0.2 + 0.55 * settings.flow + 0.6 * lastAgit);
     U.uMT.value = mt; U.uAgit.value = lastAgit; U.uTime.value = gt;
     U.uRoot.value.copy(root.matrixWorld); U.uRootInv.value.copy(root.matrixWorld).invert();
+    pt += dt; props.update(pt);
   }
 
-  const animNodes = [root, bodyPivot, face, ...eyes, mouth, ...arms, ...legs];
+  const animNodes = [root, bodyPivot, face, ...eyes, mouth, ...arms, ...legs, ...props.nodes];
   const morphMeshes = [body, eyes[0].children[0], eyes[1].children[0], mouthMesh];
   return {
     root, apply, update, resetJelly, settings, animNodes, morphMeshes,
+    setProp: (n) => props.set(n), get prop() { return props.current; }, liveOnly: props.liveOnly,
     pickables: [body, ...arms.map((a) => a.children[0]), ...legs.map((l) => l.children[0])],
   };
 }

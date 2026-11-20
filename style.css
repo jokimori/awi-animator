@@ -187,3 +187,7 @@ dialog::backdrop { background: rgba(40, 32, 24, .28); backdrop-filter: blur(2px)
   .tl-bar .btn.sm { padding: 9px 10px; }
   .field input { width: 48px; }
 }
+
+.fmt-sec { font: 500 9.5px var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); padding: 14px 0 6px; border-bottom: 1px solid var(--line); }
+.fmt-sec .momentTime { font: 500 11px var(--mono); letter-spacing: 0; color: var(--ink); text-transform: none; }
+.presets.props .preset { padding: 9px 6px; }
