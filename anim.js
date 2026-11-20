@@ -96,11 +96,11 @@ const PRESET_DEFS = {
     [1.48, { posX: 0, squash: 0.08, armLRaise: 22, armRRaise: 22, bow: 12 }],
   ] },
   meditando: { label: 'Meditando', color: '#8f7fd6', duration: 6,
-    base: { sit: 1, eyeHappy: 0.5, mouthSmile: 0.25, armLRaise: 8, armRRaise: 8, armLSwing: 55, armRSwing: 55, agit: 0.03, warm: -0.08, posY: 0.1 }, keys: [
+    base: { sit: 1, eyeHappy: 0.5, mouthSmile: 0.25, armLRaise: -44, armRRaise: -44, armLSwing: 51, armRSwing: 51, armLen: 2.0, agit: 0.03, warm: -0.08, posY: 0.1 }, keys: [
     [0, { posY: 0.1, squash: 0 }],
-    [1.5, { posY: 0.2, squash: -0.05, armLRaise: 12, armRRaise: 12 }],
-    [3, { posY: 0.1, squash: 0.04, armLRaise: 8, armRRaise: 8 }],
-    [4.5, { posY: 0.2, squash: -0.05, armLRaise: 12, armRRaise: 12 }],
+    [1.5, { posY: 0.2, squash: -0.05, armLRaise: -41, armRRaise: -41 }],
+    [3, { posY: 0.1, squash: 0.04, armLRaise: -44, armRRaise: -44 }],
+    [4.5, { posY: 0.2, squash: -0.05, armLRaise: -41, armRRaise: -41 }],
   ] },
   curioso: { label: 'Curioso', color: '#d9a84c', duration: 3.2, prop: 'lupa',
     base: { armRRaise: 18, armRSwing: 72, armLRaise: 10, lookX: 0.12, lookY: 0.05, eyeOpen: 1.15, bow: 6, mouthSmile: 0.15, mouthOpen: 0.25, agit: 0.2 }, keys: [

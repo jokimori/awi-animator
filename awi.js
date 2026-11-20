@@ -183,6 +183,34 @@ const EYE_X = 0.385, EYE_Y = 0.27, MOUTH_Y = 0.055;
 const BODY_BASE = 0.3, BODY_HEIGHT = 2.55;
 const SIT_DROP = 0.3; // cuánto baja el cuerpo al sentarse
 
+/* ── brazos: "porotitos" con las dos puntas siempre redondas ──
+   El largo cambia con un morph que estira solo el tramo recto, así las puntas nunca se afinan. */
+const ARM_TOP = 0.1, ARM_R1 = 0.135, ARM_R2 = 0.162;   // hombro (metido en el cuerpo) y mano, un poco más gordita
+const ARM_L0 = 0.8, ARM_L1 = 2.2;                       // rango del control "Largo de brazos"
+const armTotal = (L) => 0.415 * L + ARM_TOP;            // la punta de la mano queda en -0.415·L
+function armProfile(L) {
+  const len = Math.max(0.01, armTotal(L) - ARM_R1 - ARM_R2), pts = [], N = 12;
+  for (let i = 0; i <= N; i++) { const a = (i / N) * (Math.PI / 2); pts.push(new THREE.Vector2(ARM_R1 * Math.sin(a), -ARM_R1 + ARM_R1 * Math.cos(a))); }
+  for (let i = 0; i <= N; i++) { const a = (i / N) * (Math.PI / 2); pts.push(new THREE.Vector2(ARM_R2 * Math.cos(a), -ARM_R1 - len - ARM_R2 * Math.sin(a))); }
+  pts[pts.length - 1].x = 0.0001;
+  return pts.reverse(); // de abajo hacia arriba: así las caras miran hacia afuera
+}
+function armGeometry() {
+  const base = new THREE.LatheGeometry(armProfile(ARM_L0), 32), long = new THREE.LatheGeometry(armProfile(ARM_L1), 32);
+  base.computeVertexNormals(); long.computeVertexNormals();
+  base.morphTargetsRelative = true;
+  const dp = long.attributes.position.array.map((v, i) => v - base.attributes.position.array[i]);
+  const dn = long.attributes.normal.array.map((v, i) => v - base.attributes.normal.array[i]);
+  const pa = new THREE.BufferAttribute(dp, 3); pa.name = 'Largo'; const na = new THREE.BufferAttribute(dn, 3); na.name = 'Largo';
+  base.morphAttributes.position = [pa]; base.morphAttributes.normal = [na];
+  return base;
+}
+// largo del brazo: el morph puede pasar de 1 (se estira más allá del rango si la lupa lo necesita)
+function setArmLen(arm, L) {
+  arm.userData.L = L;
+  arm.children[0].morphTargetInfluences[0] = (L - ARM_L0) / (ARM_L1 - ARM_L0);
+}
+
 const VERT_HEAD = /* glsl */`
 uniform mat4 uRoot; uniform mat4 uRootInv; uniform vec3 uJig; uniform float uDs; uniform float uTime; uniform float uWobble;
 uniform float uBase; uniform float uHeight; uniform vec3 uCenter; uniform float uMT; uniform float uAgit; varying vec3 vAwi;
@@ -319,10 +347,11 @@ export function createAwi() {
   orient(mouth, 0.01, MOUTH_Y, 0.008);
   const mouthMesh = new THREE.Mesh(featureGeometry(MOUTH, MOUTH_MORPHS), featMat); mouthMesh.name = 'AWI_mouth_mesh'; mouth.add(mouthMesh); face.add(mouth);
 
+  const armGeo = armGeometry();
   const arms = [-1, 1].map((s) => {
     const a = new THREE.Group(); a.name = s < 0 ? 'AWI_armL' : 'AWI_armR';
-    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 28), limbMat); m.name = a.name + '_mesh';
-    m.scale.set(0.165, 0.255, 0.17); m.position.set(s * 0.03, -0.16, 0.04); a.add(m); root.add(a); return a;
+    const m = new THREE.Mesh(armGeo, limbMat); m.name = a.name + '_mesh';
+    m.position.set(s * 0.03, ARM_TOP, 0.04); a.add(m); root.add(a); return a;
   });
   const legs = [-1, 1].map((s) => {
     const l = new THREE.Group(); l.name = s < 0 ? 'AWI_legL' : 'AWI_legR';
@@ -331,7 +360,7 @@ export function createAwi() {
     const m = new THREE.Mesh(new THREE.CapsuleGeometry(0.205, 0.11, 12, 28), limbMat); m.name = l.name + '_mesh';
     m.position.y = -0.265; l.add(m); root.add(l); return l;
   });
-  const props = createProps({ root, arms, face, eyes, patch: (m) => patch(m, 'prop') });
+  const props = createProps({ root, arms, face, eyes, setArmLen, patch: (m) => patch(m, 'prop') });
   root.traverse((o) => { if (o.isMesh && !o.material.transparent) o.castShadow = true; });
 
   const D2R = Math.PI / 180;
@@ -381,8 +410,7 @@ export function createAwi() {
       const raise = ((i === 0 ? p.armLRaise : p.armRRaise) + 9) * D2R, swing = (i === 0 ? p.armLSwing : p.armRSwing) * D2R;
       a.rotation.set(-swing, 0, s * raise);
       // largo del brazo (crece desde el hombro; la mano y lo que sostiene van en la punta)
-      const L = p.armLen ?? 1.4, am = a.children[0];
-      am.scale.set(0.155, 0.255 * L, 0.16); am.position.y = -0.16 * L;
+      setArmLen(a, p.armLen ?? 1.4);
     });
     legs.forEach((l, i) => {
       const s = i === 0 ? -1 : 1;
@@ -427,7 +455,7 @@ export function createAwi() {
   }
 
   const animNodes = [root, bodyPivot, face, ...eyes, mouth, ...arms, ...legs, ...props.nodes];
-  const morphMeshes = [body, eyes[0].children[0], eyes[1].children[0], mouthMesh];
+  const morphMeshes = [body, eyes[0].children[0], eyes[1].children[0], mouthMesh, arms[0].children[0], arms[1].children[0]];
   return {
     root, apply, update, resetJelly, settings, animNodes, morphMeshes,
     setProp: (n) => props.set(n), get prop() { return props.current; }, liveOnly: props.liveOnly,

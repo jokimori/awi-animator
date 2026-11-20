@@ -19,7 +19,7 @@ function roundedRect(shape, x, y, w, h, r) {
   return shape;
 }
 
-export function createProps({ root, arms, face, eyes, patch }) {
+export function createProps({ root, arms, face, eyes, setArmLen, patch }) {
   const mat = (color, o = {}) => patch(new THREE.MeshPhysicalMaterial({ color, roughness: 0.55, clearcoat: 0.25, clearcoatRoughness: 0.45, ...o }));
   const mesh = (geo, m, parent, name) => { const x = new THREE.Mesh(geo, m); x.name = name; x.castShadow = true; parent.add(x); return x; };
   const group = (name, parent) => { const g = new THREE.Group(); g.name = name; parent.add(g); return g; };
@@ -152,21 +152,20 @@ export function createProps({ root, arms, face, eyes, patch }) {
   const v = new THREE.Vector3(), a0 = new THREE.Vector3(), a1 = new THREE.Vector3();
   // se llama al final de apply(): la regadera sigue a la mano (también queda en el .glb)
   const armR = arms[1], armMesh = armR.children[0];
-  const armBase = { sy: armMesh.scale.y, py: armMesh.position.y }, handBaseY = hands[1].position.y;
+  const HAND_K = 0.37; // la mano queda a 0.37·L del hombro
   const down = new THREE.Vector3(0, -1, 0), q = new THREE.Quaternion();
   function follow() {
     // las manos siguen el largo actual de cada brazo
-    hands.forEach((h, i) => (h.position.y = handBaseY * (arms[i].children[0].scale.y / armBase.sy)));
+    hands.forEach((h, i) => (h.position.y = -HAND_K * (arms[i].userData.L ?? 1.4)));
     if (current === 'lupa') {
       root.updateMatrixWorld(true);
       // el brazo apunta al mango y, si no llega, se estira hasta alcanzarlo
       const d = root.worldToLocal(grip.getWorldPosition(v)).sub(armR.position);
-      const sy0 = armMesh.scale.y, py0 = armMesh.position.y, hy0 = hands[1].position.y;
-      const len = d.length(), reach = -(py0 - sy0); // largo actual del brazo
+      const len = d.length();
       q.setFromUnitVectors(down, d.normalize());
       armR.quaternion.copy(q);
-      const k = len / reach; // el brazo llega justo al mango (se acorta o se estira)
-      armMesh.scale.y = sy0 * k; armMesh.position.y = py0 * k; hands[1].position.y = hy0 * k;
+      const L = len / 0.415; // largo justo para que la mano llegue al mango
+      setArmLen(armR, L); hands[1].position.y = -HAND_K * L;
       // el ojo se ve agrandado a través del vidrio
       eyes[1].scale.multiplyScalar(1.25);
       root.updateMatrixWorld(true);
@@ -189,5 +188,5 @@ export function createProps({ root, arms, face, eyes, patch }) {
       d.scale.setScalar(u > 0.92 ? (1 - u) / 0.08 : 1);
     });
   }
-  return { set, follow, update, get current() { return current; }, liveOnly: [agua], nodes: [regadera, armMesh] };
+  return { set, follow, update, get current() { return current; }, liveOnly: [agua], nodes: [regadera] };
 }
