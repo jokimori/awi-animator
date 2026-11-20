@@ -23,10 +23,11 @@ export const CHANNELS = [
   { id: 'inflado', g: 'forma', label: 'Inflado', min: 0, max: 1, step: 0.01, def: 0, hint: ['normal', 'inflado'] },
   { id: 'caido', g: 'forma', label: 'Caído', min: 0, max: 1, step: 0.01, def: 0, hint: ['erguido', 'caído'] },
   { id: 'estirado', g: 'forma', label: 'Copete alto', min: 0, max: 1, step: 0.01, def: 0, hint: ['normal', 'alto'] },
-  { id: 'armLRaise', g: 'brazos', label: 'Izquierdo · subir', min: -20, max: 170, step: 1, def: 0, unit: '°', hint: ['abajo', 'arriba'] },
-  { id: 'armLSwing', g: 'brazos', label: 'Izquierdo · adelante', min: -80, max: 80, step: 1, def: 0, unit: '°', hint: ['atrás', 'adelante'] },
-  { id: 'armRRaise', g: 'brazos', label: 'Derecho · subir', min: -20, max: 170, step: 1, def: 0, unit: '°', hint: ['abajo', 'arriba'] },
-  { id: 'armRSwing', g: 'brazos', label: 'Derecho · adelante', min: -80, max: 80, step: 1, def: 0, unit: '°', hint: ['atrás', 'adelante'] },
+  { id: 'armLen', g: 'brazos', label: 'Largo de brazos', min: 0.8, max: 2.2, step: 0.01, def: 1.4, hint: ['cortos', 'largos'] },
+  { id: 'armLRaise', g: 'brazos', label: 'Izquierdo · subir', min: -60, max: 170, step: 1, def: 0, unit: '°', hint: ['hacia adentro', 'arriba'] },
+  { id: 'armLSwing', g: 'brazos', label: 'Izquierdo · adelante', min: -80, max: 150, step: 1, def: 0, unit: '°', hint: ['atrás', 'adelante'] },
+  { id: 'armRRaise', g: 'brazos', label: 'Derecho · subir', min: -60, max: 170, step: 1, def: 0, unit: '°', hint: ['hacia adentro', 'arriba'] },
+  { id: 'armRSwing', g: 'brazos', label: 'Derecho · adelante', min: -80, max: 150, step: 1, def: 0, unit: '°', hint: ['atrás', 'adelante'] },
   { id: 'sit', g: 'piernas', label: 'Parado / sentado', min: 0, max: 1, step: 0.01, def: 0, hint: ['parado', 'sentado'] },
   { id: 'legLStep', g: 'piernas', label: 'Izquierda · paso', min: -50, max: 50, step: 1, def: 0, unit: '°', hint: ['atrás', 'adelante'] },
   { id: 'legRStep', g: 'piernas', label: 'Derecha · paso', min: -50, max: 50, step: 1, def: 0, unit: '°', hint: ['atrás', 'adelante'] },
@@ -95,11 +96,11 @@ const PRESET_DEFS = {
     [1.48, { posX: 0, squash: 0.08, armLRaise: 22, armRRaise: 22, bow: 12 }],
   ] },
   meditando: { label: 'Meditando', color: '#8f7fd6', duration: 6,
-    base: { sit: 1, eyeHappy: 0.5, mouthSmile: 0.25, armLRaise: 30, armRRaise: 30, armLSwing: 50, armRSwing: 50, agit: 0.03, warm: -0.08, posY: 0.1 }, keys: [
+    base: { sit: 1, eyeHappy: 0.5, mouthSmile: 0.25, armLRaise: 8, armRRaise: 8, armLSwing: 55, armRSwing: 55, agit: 0.03, warm: -0.08, posY: 0.1 }, keys: [
     [0, { posY: 0.1, squash: 0 }],
-    [1.5, { posY: 0.2, squash: -0.05, armLRaise: 35, armRRaise: 35 }],
-    [3, { posY: 0.1, squash: 0.04, armLRaise: 30, armRRaise: 30 }],
-    [4.5, { posY: 0.2, squash: -0.05, armLRaise: 35, armRRaise: 35 }],
+    [1.5, { posY: 0.2, squash: -0.05, armLRaise: 12, armRRaise: 12 }],
+    [3, { posY: 0.1, squash: 0.04, armLRaise: 8, armRRaise: 8 }],
+    [4.5, { posY: 0.2, squash: -0.05, armLRaise: 12, armRRaise: 12 }],
   ] },
   curioso: { label: 'Curioso', color: '#d9a84c', duration: 3.2, prop: 'lupa',
     base: { armRRaise: 18, armRSwing: 72, armLRaise: 10, lookX: 0.12, lookY: 0.05, eyeOpen: 1.15, bow: 6, mouthSmile: 0.15, mouthOpen: 0.25, agit: 0.2 }, keys: [
@@ -109,16 +110,16 @@ const PRESET_DEFS = {
     [2.2, { turn: 8, lookX: 0.05, armRSwing: 68, armRRaise: 14, bow: 4 }],
   ] },
   leyendo: { label: 'Leyendo', color: '#2f7d5d', duration: 4, prop: 'libro',
-    base: { armLRaise: 28, armRRaise: 28, armLSwing: 80, armRSwing: 80, lookY: -0.6, eyeOpen: 0.85, mouthSmile: 0.2, agit: 0.05, bow: 5 }, keys: [
+    base: { armLRaise: -24, armRRaise: -24, armLSwing: 90, armRSwing: 90, armLen: 2.1, lookY: -0.6, eyeOpen: 0.85, mouthSmile: 0.2, agit: 0.05, bow: 5 }, keys: [
     [0, { lookX: -0.3 }], [1.6, { lookX: 0.3 }], [1.85, { lookX: -0.3 }],
     [2.6, { eyeOpen: 0.85 }], [2.7, { eyeOpen: 0.08 }], [2.82, { eyeOpen: 0.85 }],
     [3.6, { lookX: 0.2 }],
   ] },
   cine: { label: 'En el cine', color: '#e23a3f', duration: 3, prop: 'cine',
-    base: { sit: 1, eyeOpen: 1.15, mouthSmile: 0.3, agit: 0.1, armLRaise: 18, armLSwing: 55, armRRaise: 18, armRSwing: 55 }, keys: [
-    [0, { armRSwing: 55, armRRaise: 18, mouthOpen: 0 }],
-    [0.55, { armRSwing: 82, armRRaise: 58, mouthOpen: 0.5 }],
-    [0.85, { armRSwing: 55, armRRaise: 18, mouthOpen: 0.1 }],
+    base: { sit: 1, eyeOpen: 1.15, mouthSmile: 0.3, agit: 0.1, armLen: 2.2, armLRaise: -37, armLSwing: 88, armRRaise: -37, armRSwing: 88 }, keys: [
+    [0, { armRSwing: 88, armRRaise: -37, mouthOpen: 0 }],
+    [0.55, { armRSwing: 100, armRRaise: -24, mouthOpen: 0.5 }],
+    [0.85, { armRSwing: 88, armRRaise: -37, mouthOpen: 0.1 }],
     [1.05, { mouthOpen: 0.35 }], [1.25, { mouthOpen: 0 }],
     [2.0, { lookX: 0.15 }], [2.6, { lookX: -0.1 }],
   ] },

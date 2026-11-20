@@ -380,6 +380,9 @@ export function createAwi() {
       a.position.set((x - s * 0.07) * sxz, armY, 0.02);
       const raise = ((i === 0 ? p.armLRaise : p.armRRaise) + 9) * D2R, swing = (i === 0 ? p.armLSwing : p.armRSwing) * D2R;
       a.rotation.set(-swing, 0, s * raise);
+      // largo del brazo (crece desde el hombro; la mano y lo que sostiene van en la punta)
+      const L = p.armLen ?? 1.4, am = a.children[0];
+      am.scale.set(0.155, 0.255 * L, 0.16); am.position.y = -0.16 * L;
     });
     legs.forEach((l, i) => {
       const s = i === 0 ? -1 : 1;

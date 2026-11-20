@@ -155,16 +155,18 @@ export function createProps({ root, arms, face, eyes, patch }) {
   const armBase = { sy: armMesh.scale.y, py: armMesh.position.y }, handBaseY = hands[1].position.y;
   const down = new THREE.Vector3(0, -1, 0), q = new THREE.Quaternion();
   function follow() {
-    armMesh.scale.y = armBase.sy; armMesh.position.y = armBase.py; hands[1].position.y = handBaseY;
+    // las manos siguen el largo actual de cada brazo
+    hands.forEach((h, i) => (h.position.y = handBaseY * (arms[i].children[0].scale.y / armBase.sy)));
     if (current === 'lupa') {
       root.updateMatrixWorld(true);
-      // el brazo apunta al mango y se estira hasta alcanzarlo
+      // el brazo apunta al mango y, si no llega, se estira hasta alcanzarlo
       const d = root.worldToLocal(grip.getWorldPosition(v)).sub(armR.position);
-      const len = d.length(), reach = -(armBase.py - armBase.sy) ; // largo del brazo en reposo
+      const sy0 = armMesh.scale.y, py0 = armMesh.position.y, hy0 = hands[1].position.y;
+      const len = d.length(), reach = -(py0 - sy0); // largo actual del brazo
       q.setFromUnitVectors(down, d.normalize());
       armR.quaternion.copy(q);
-      const k = Math.max(1, len / reach);
-      armMesh.scale.y = armBase.sy * k; armMesh.position.y = armBase.py * k; hands[1].position.y = handBaseY * k;
+      const k = len / reach; // el brazo llega justo al mango (se acorta o se estira)
+      armMesh.scale.y = sy0 * k; armMesh.position.y = py0 * k; hands[1].position.y = hy0 * k;
       // el ojo se ve agrandado a través del vidrio
       eyes[1].scale.multiplyScalar(1.25);
       root.updateMatrixWorld(true);
