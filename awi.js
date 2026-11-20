@@ -187,7 +187,7 @@ const SIT_DROP = 0.3; // cuánto baja el cuerpo al sentarse
    El largo cambia con un morph que estira solo el tramo recto, así las puntas nunca se afinan. */
 const ARM_TOP = 0.1, ARM_R1 = 0.135, ARM_R2 = 0.162;   // hombro (metido en el cuerpo) y mano, un poco más gordita
 const ARM_L0 = 0.8, ARM_L1 = 2.2;                       // rango de la forma (el largo usado es fijo)
-const ARM_LEN = 1.25;                                   // largo de los brazos de AWI
+const ARM_LEN = 1.0;                                    // bracitos cortos en reposo (se estiran solo al agarrar)
 const armTotal = (L) => 0.415 * L + ARM_TOP;            // la punta de la mano queda en -0.415·L
 function armProfile(L) {
   const len = Math.max(0.01, armTotal(L) - ARM_R1 - ARM_R2), pts = [], N = 12;
@@ -309,7 +309,7 @@ export function createAwi() {
   });
   const bodyMat = patch(velvet('#ffffff', true), 'body');
   const limbMat = patch(velvet(C.limb, false), 'limb');
-  const featMat = patch(new THREE.MeshStandardMaterial({ color: '#fffaf6', roughness: 0.55, emissive: '#ffffff', emissiveIntensity: 0.32 }), 'feat');
+  const featMat = patch(new THREE.MeshStandardMaterial({ color: '#fffaf6', roughness: 1, envMapIntensity: 0.3, emissive: '#ffffff', emissiveIntensity: 0.4 }), 'feat'); // ojos y boca mate, sin brillos
 
   const root = new THREE.Group(); root.name = 'AWI_root';
   const bodyPivot = new THREE.Group(); bodyPivot.name = 'AWI_bodyPivot'; bodyPivot.position.y = BODY_PIVOT_Y; root.add(bodyPivot);

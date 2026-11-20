@@ -5,7 +5,7 @@ import * as THREE from 'three';
 export const PROPS = { ninguno: 'Ninguno', lupa: 'Lupa', libro: 'Libro', cine: 'Cine', botanico: 'Botánico' };
 
 // generador pseudoaleatorio fijo: los pochoclos y las hojas quedan siempre iguales
-const LUPA_S = 1.8; // tamaño de la lupa
+const LUPA_S = 1.6; // tamaño de la lupa
 const rng = (seed) => () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
 
 function canvasTex(w, h, draw) {
@@ -31,17 +31,17 @@ export function createProps({ root, arms, face, eyes, setArmLen, patch }) {
   const lupa = group('AWI_prop_lupa', face);
   {
     const e = eyes[1].position;
-    lupa.position.set(e.x + 0.02, e.y, e.z + 0.3);
-    lupa.scale.setScalar(LUPA_S); // la orientación y el largo del mango se calculan en follow()
+    lupa.position.set(e.x + 0.02, e.y, e.z + 0.2);
+    lupa.rotation.set(0.15, 0, 0.6, 'ZXY'); lupa.scale.setScalar(LUPA_S); // aro de frente, mango hacia abajo y afuera
   }
   const wood = mat('#7a4a2c', { roughness: 0.7 }), brass = mat('#d9a84c', { roughness: 0.3, metalness: 0.6, clearcoat: 0.6 });
   mesh(new THREE.TorusGeometry(0.155, 0.03, 18, 56), brass, lupa, 'AWI_lupa_aro');
   const lens = mesh(new THREE.CircleGeometry(0.152, 56), mat('#d8efff', { transparent: true, opacity: 0.28, roughness: 0.05, clearcoat: 1, side: THREE.DoubleSide, depthWrite: false }), lupa, 'AWI_lupa_vidrio');
   lens.castShadow = false;
-  // el mango sale del borde del aro; se alarga lo justo para llegar a la mano (el brazo no cambia de largo)
   const mango = group('AWI_lupa_mangoGrupo', lupa); mango.position.y = -0.185;
   mesh(new THREE.CylinderGeometry(0.046, 0.046, 0.05, 20), brass, mango, 'AWI_lupa_virola').position.y = -0.025;
   mesh(new THREE.CylinderGeometry(0.042, 0.034, 0.3, 20), wood, mango, 'AWI_lupa_mango').position.y = -0.2;
+  const gripLupa = new THREE.Object3D(); gripLupa.position.set(0, -0.3, 0.06); mango.add(gripLupa); // la mano envuelve el mango, por delante
 
   /* ── libro abierto (sostenido delante del pecho, páginas hacia la cara) ── */
   const libro = group('AWI_prop_libro', root);
@@ -56,9 +56,11 @@ export function createProps({ root, arms, face, eyes, setArmLen, patch }) {
     g.beginPath(); g.arc(w / 2, 230, 46, 0, Math.PI * 2); g.fill(); g.fillStyle = '#2f7d5d'; g.beginPath(); g.arc(w / 2 + 16, 220, 40, 0, Math.PI * 2); g.fill();
   });
   const coverMat = mat('#2f7d5d', { roughness: 0.6 }), coverFront = mat('#ffffff', { map: coverTex, roughness: 0.6 });
+  const gripBook = [];
   for (const s of [-1, 1]) {
     const half = group('AWI_libro_mitad' + (s < 0 ? 'I' : 'D'), libro);
     half.rotation.z = -s * 0.2;
+    const gb = new THREE.Object3D(); gb.position.set(s * 0.3, -0.08, -0.07); half.add(gb); gripBook.push(gb); // manos en los bordes, por el lado de la tapa
     mesh(new THREE.BoxGeometry(0.3, 0.04, 0.42), pageMat, half, 'AWI_libro_hojas').position.set(s * 0.155, 0, 0);
     mesh(new THREE.BoxGeometry(0.325, 0.02, 0.45), [coverMat, coverMat, coverMat, s > 0 ? coverFront : coverMat, coverMat, coverMat], half, 'AWI_libro_tapa').position.set(s * 0.165, -0.03, 0);
   }
@@ -68,7 +70,7 @@ export function createProps({ root, arms, face, eyes, setArmLen, patch }) {
   /* ── cine: anteojos 3D (en la cara) + balde de pochoclos ── */
   const anteojos = group('AWI_prop_anteojos', face);
   const ez = eyes[0].position.z, ey = eyes[0].position.y, ex = Math.abs(eyes[0].position.x);
-  anteojos.position.set(0.01, ey, ez + 0.1); anteojos.scale.setScalar(1.12);
+  anteojos.position.set(0.01, ey, ez + 0.17); anteojos.scale.setScalar(1.12); // bien adelante: la cara es curva y el ojo no debe asomar por delante del lente
   // marco ancho con huecos altos (los ojos entran enteros) y una muesca en el puente para que se vea la boca
   const W = 1.3, H = 0.6, rr = 0.13, nw = 0.15, nh = 0.2;
   const frameShape = new THREE.Shape();
@@ -81,16 +83,20 @@ export function createProps({ root, arms, face, eyes, setArmLen, patch }) {
   frameShape.lineTo(-W / 2, -H / 2 + rr); frameShape.quadraticCurveTo(-W / 2, -H / 2, -W / 2 + rr, -H / 2);
   const HW = 0.4, HH = 0.48;
   for (const s of [-1, 1]) frameShape.holes.push(roundedRect(new THREE.Path(), s * ex - HW / 2, -HH / 2 + 0.01, HW, HH, 0.09));
-  const frame = mesh(new THREE.ExtrudeGeometry(frameShape, { depth: 0.035, bevelEnabled: true, bevelThickness: 0.012, bevelSize: 0.012, bevelSegments: 3, curveSegments: 10 }), mat('#f6f2ea', { roughness: 0.5 }), anteojos, 'AWI_anteojos_marco');
+  const frameGeo = new THREE.ExtrudeGeometry(frameShape, { depth: 0.035, bevelEnabled: true, bevelThickness: 0.012, bevelSize: 0.012, bevelSegments: 3, curveSegments: 16 });
+  const frameMat = mat('#f6f2ea', { roughness: 0.6, clearcoat: 0 });
+  const frame = mesh(frameGeo, frameMat, anteojos, 'AWI_anteojos_marco');
   frame.position.z = -0.02;
+  // lentes mate (sin el reflejo blanco)
   for (const s of [-1, 1]) {
-    const l = mesh(new THREE.PlaneGeometry(HW + 0.02, HH + 0.02), mat(s < 0 ? '#ff2f4a' : '#20c4ff', { transparent: true, opacity: 0.72, roughness: 0.1, clearcoat: 1, depthWrite: false }), anteojos, 'AWI_anteojos_lente' + (s < 0 ? 'I' : 'D'));
+    const l = mesh(new THREE.PlaneGeometry(HW + 0.02, HH + 0.02), mat(s < 0 ? '#ff3a55' : '#2bc6ff', { transparent: true, opacity: 0.68, roughness: 0.9, clearcoat: 0, metalness: 0, depthWrite: false }), anteojos, 'AWI_anteojos_lente' + (s < 0 ? 'I' : 'D'));
     l.position.set(s * ex, 0.01, 0); l.castShadow = false;
   }
   const balde = group('AWI_prop_pochoclos', root);
-  balde.position.set(-0.05, 0.42, 1.02); balde.scale.setScalar(1.3);
+  balde.position.set(1.42, 0.28, 0.72); balde.scale.setScalar(1.45); // a la derecha de AWI, en el piso
   const stripes = canvasTex(512, 64, (g, w, h) => { const n = 12; for (let i = 0; i < n; i++) { g.fillStyle = i % 2 ? '#fbf6ee' : '#e23a3f'; g.fillRect((i * w) / n, 0, w / n + 1, h); } });
   mesh(new THREE.CylinderGeometry(0.22, 0.16, 0.38, 36, 1, true), mat('#ffffff', { map: stripes, side: THREE.DoubleSide, roughness: 0.6 }), balde, 'AWI_balde');
+  const gripBucket = [null, (() => { const g = new THREE.Object3D(); g.position.set(-0.1, 0.19, 0.04); balde.add(g); return g; })()]; // la mano derecha se mete en el balde
   mesh(new THREE.CircleGeometry(0.16, 36), mat('#e23a3f'), balde, 'AWI_balde_fondo').rotation.x = Math.PI / 2;
   balde.children.at(-1).position.y = -0.19;
   mesh(new THREE.TorusGeometry(0.22, 0.014, 8, 48), mat('#fbf6ee'), balde, 'AWI_balde_borde').rotation.x = Math.PI / 2;
@@ -124,9 +130,9 @@ export function createProps({ root, arms, face, eyes, setArmLen, patch }) {
     leaf.scale.set(0.075, 0.016, 0.14); leaf.position.y = tall; leaf.rotation.set(0.5, a, 0);
   }
   mesh(new THREE.SphereGeometry(0.045, 16, 12), mat('#ff9fb8', { roughness: 0.5 }), planta, 'AWI_pimpollo').position.y = 0.34;
-  // la regadera cuelga de la mano derecha (sigue su posición, no su giro, para quedar siempre "colgando")
+  // la regadera queda sobre la planta, inclinada regando; la mano derecha toma el asa
   const regadera = group('AWI_prop_regadera', root);
-  regadera.scale.setScalar(1.35);
+  regadera.position.set(1.42, 1.08, 0.5); regadera.scale.setScalar(1.35);
   const sage = mat('#86bdb6', { roughness: 0.45, clearcoat: 0.5 });
   const cuerpo = group('AWI_regadera_cuerpo', regadera); cuerpo.rotation.z = -0.8;
   mesh(new THREE.CylinderGeometry(0.135, 0.155, 0.24, 30), sage, cuerpo, 'AWI_regadera_tanque').position.y = -0.27;
@@ -135,6 +141,7 @@ export function createProps({ root, arms, face, eyes, setArmLen, patch }) {
   mesh(new THREE.CylinderGeometry(0.016, 0.028, 0.36, 12), sage, spout, 'AWI_regadera_tubo').position.y = 0.18;
   mesh(new THREE.ConeGeometry(0.05, 0.07, 18, 1, true), sage, spout, 'AWI_regadera_flor').position.y = 0.38;
   const tip = new THREE.Object3D(); tip.position.y = 0.42; spout.add(tip);
+  const gripCan = new THREE.Object3D(); gripCan.position.set(0, -0.01, 0.05); cuerpo.add(gripCan);
   // gotitas de agua que caen del pico a la tierra
   const agua = group('AWI_prop_agua', root);
   const dropMat = new THREE.MeshPhysicalMaterial({ color: '#7cc8ff', roughness: 0.05, transparent: true, opacity: 0.9, clearcoat: 1 });
@@ -152,43 +159,30 @@ export function createProps({ root, arms, face, eyes, setArmLen, patch }) {
 
   const v = new THREE.Vector3(), a0 = new THREE.Vector3(), a1 = new THREE.Vector3();
   // se llama al final de apply(): la regadera sigue a la mano (también queda en el .glb)
-  const armR = arms[1], armMesh = armR.children[0];
+  // puntos de agarre de cada objeto [mano izquierda, mano derecha]
+  const GRIPS = { lupa: [null, gripLupa], libro: gripBook, cine: gripBucket, botanico: [null, gripCan] };
+  // al agarrar, el brazo nace más adelante y más adentro del cuerpo (la bruma se acomoda): así casi no se estira
+  const SHOULDER = { lupa: [0.84, 0.55], libro: [0.8, 0.52], cine: [1.05, 0.3], botanico: [1, 0] };
   const HAND_K = 0.37; // la mano queda a 0.37·L del hombro
-  const down = new THREE.Vector3(0, -1, 0), q = new THREE.Quaternion(), q2 = new THREE.Quaternion();
-  const gripW = new THREE.Vector3(), dW = new THREE.Vector3();
-  const qTilt = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.3, 0, 0)); // el aro apenas inclinado hacia atrás
+  const down = new THREE.Vector3(0, -1, 0), q = new THREE.Quaternion(), t = new THREE.Vector3();
   function follow() {
-    hands.forEach((h, i) => (h.position.y = -HAND_K * (arms[i].userData.L ?? 1.25)));
-    if (current === 'lupa') {
-      root.updateMatrixWorld(true);
-      // 1) la mano apunta hacia el aro, hasta donde le da el brazo (que no cambia de largo)
-      const ringW = lupa.getWorldPosition(a0), shW = armR.getWorldPosition(a1);
-      const reach = HAND_K * (armR.userData.L ?? 1.25);
-      gripW.subVectors(ringW, shW).setLength(reach).add(shW);
-      // 2) el aro mira a la cámara (apenas inclinado) y el mango va, dentro del plano del aro, hacia la mano
-      face.getWorldQuaternion(q2); const toFace = q2.clone().invert();
-      const n = new THREE.Vector3(0, 0, 1).applyQuaternion(qTilt);
-      const toGrip = dW.subVectors(gripW, ringW).applyQuaternion(toFace);
-      const inPlane = toGrip.clone().projectOnPlane(n); const dist = inPlane.length(); inPlane.divideScalar(dist);
-      const yb = down.clone().applyQuaternion(qTilt);
-      const ang = Math.atan2(n.dot(new THREE.Vector3().crossVectors(yb, inPlane)), yb.dot(inPlane));
-      lupa.quaternion.setFromAxisAngle(n, ang).multiply(qTilt);
-      mango.scale.y = Math.max(0.3, (dist / LUPA_S - 0.185) / 0.35);
-      // 3) la mano va a la punta del mango tal como se ve de frente (la diferencia queda en profundidad)
-      root.updateMatrixWorld(true);
-      const endW = mango.localToWorld(new THREE.Vector3(0, -0.35, 0));
-      const e = root.worldToLocal(endW), sh = armR.position;
-      const dx = e.x - sh.x, dy = e.y - sh.y, r2 = reach * reach - dx * dx - dy * dy;
-      const hand = r2 > 0 ? new THREE.Vector3(e.x, e.y, sh.z + Math.sqrt(r2)) : e;
-      armR.quaternion.copy(q.setFromUnitVectors(down, hand.sub(sh).normalize()));
-      // el ojo se ve agrandado a través del vidrio
-      eyes[1].scale.multiplyScalar(1.25);
-      root.updateMatrixWorld(true);
-    }
-    if (current === 'botanico') {
-      root.updateMatrixWorld(true);
-      regadera.position.copy(root.worldToLocal(hands[1].getWorldPosition(v)));
-    }
+    const gs = GRIPS[current] || [];
+    if (gs.some(Boolean)) root.updateMatrixWorld(true);
+    arms.forEach((arm, i) => {
+      const g = gs[i];
+      if (g) {
+        const [kx, dz] = SHOULDER[current] || [1, 0];
+        arm.position.x *= kx; arm.position.z += dz;
+        // agarra el objeto: el brazo apunta al punto de agarre y se estira apenas lo necesario
+        const d = root.worldToLocal(g.getWorldPosition(t)).sub(arm.position);
+        const L = THREE.MathUtils.clamp(d.length() / 0.415, 0.8, 2.2);
+        arm.quaternion.copy(q.setFromUnitVectors(down, d.normalize()));
+        setArmLen(arm, L);
+      }
+      hands[i].position.y = -HAND_K * (arm.userData.L ?? 1);
+    });
+    if (current === 'lupa') eyes[1].scale.multiplyScalar(1.25); // el ojo se ve agrandado a través del vidrio
+    root.updateMatrixWorld(true);
   }
   // animación en vivo: el agua cae y la plantita se mece
   function update(t) {
@@ -203,5 +197,5 @@ export function createProps({ root, arms, face, eyes, setArmLen, patch }) {
       d.scale.setScalar(u > 0.92 ? (1 - u) / 0.08 : 1);
     });
   }
-  return { set, follow, update, get current() { return current; }, liveOnly: [agua], nodes: [regadera, lupa, mango] };
+  return { set, follow, update, get current() { return current; }, liveOnly: [agua], nodes: [] };
 }
